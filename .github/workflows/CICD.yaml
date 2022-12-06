@@ -13,7 +13,7 @@ on:
       - '!.github/workflows/CICD.yaml'
     branches: [ 'main', 'release/*', 'feature/*' ]
 
-run-name: ${{ fromJson(format('["","Check pull request {0}{2} from {3}/{4}{1} {5}"]','#',':',github.event.workflow_run.pull_requests[0].number,github.event.workflow_run.head_repository.owner.login,github.event.workflow_run.head_branch,github.event.workflow_run.display_title))[github.event_name == 'workflow_run'] }}
+run-name: ${{ fromJson(format('["","Check pull request from {1}/{2}{0} {3}"]',':',github.event.workflow_run.head_repository.owner.login,github.event.workflow_run.head_branch,github.event.workflow_run.display_title))[github.event_name == 'workflow_run'] }}
 
 permissions:
   contents: read
@@ -25,12 +25,13 @@ defaults:
   run:
     shell: PowerShell
 
+env:
+  workflowDepth: 1
+
 jobs:
   Initialization:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: [ windows-latest ]
-    env:
-      workflowDepth: 1
     outputs:
       telemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
       settings: ${{ steps.ReadSettings.outputs.SettingsJson }}
@@ -69,24 +70,12 @@ jobs:
             core.setOutput('checkRunId', response.data.id);
 
       - name: Checkout
-        if: github.event_name != 'workflow_run' || (github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository)
         uses: actions/checkout@v3
         with:
           lfs: true
     
-      - name: Checkout Pull Request
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name == github.repository
-        uses: actions/checkout@v2
-        with:
-          lfs: true
-          ref: ${{ github.event.workflow_run.head_branch }}
-
-      - name: Dump
-        run: |
-          Write-Host "YES!"
-
-      - name: Download Fork Pull Request Changes
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository
+      - name: Download Pull Request Changes
+        if: github.event_name == 'workflow_run'
         uses: actions/github-script@v6
         with:
           script: |
@@ -108,8 +97,10 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('.PullRequestChanges.zip', Buffer.from(download.data));
 
-      - name: Apply Fork Pull Request Changes
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository
+      - name: Apply Pull Request Changes
+        if: github.event_name == 'workflow_run'
+        env:
+          PRREPOFULLNAME: ${{ github.event.workflow_run.head_repository.full_name }}
         run: |
           $ErrorActionPreference = "STOP"
           $location = (Get-Location).path
@@ -126,8 +117,10 @@ jobs:
             $newFolder = [System.IO.Path]::GetDirectoryName($newPath)
             $extension = [System.IO.Path]::GetExtension($path)
             $filename = [System.IO.Path]::GetFileName($path)
-            if ($extension -eq '.ps1' -or $extension -eq '.yaml' -or $extension -eq '.yml' -or $filename -eq "CODEOWNERS") {
-              throw "Pull Request containing changes to scripts, workflows or CODEOWNERS are not allowed from forks."
+            if ($ENV:PRREPOFULLNAME -ne $ENV:GITHUB_REPOSITORY) {
+              if ($extension -eq '.ps1' -or $extension -eq '.yaml' -or $extension -eq '.yml' -or $filename -eq "CODEOWNERS") {
+                throw "Pull Request containing changes to scripts, workflows or CODEOWNERS are not allowed from forks."
+              }
             }
             if ($deleteFile) {
               if (Test-Path $newPath) {
@@ -162,37 +155,65 @@ jobs:
           getProjects: 'Y'
           getEnvironments: '*'
 
+      - name: Determine Delivery Target Secrets
+        id: DetermineDeliveryTargetSecrets
+        run: |
+          $ErrorActionPreference = "STOP"
+          $deliveryTargetSecrets = @('GitHubPackagesContext','NuGetContext','StorageContext','AppSourceContext')
+          $namePrefix = 'DeliverTo'
+          Get-Item -Path (Join-Path $ENV:GITHUB_WORKSPACE ".github\$($namePrefix)*.ps1") | ForEach-Object {
+            $deliveryTarget = [System.IO.Path]::GetFileNameWithoutExtension($_.Name.SubString($namePrefix.Length))
+            $deliveryTargetSecrets += @("$($deliveryTarget)Context")
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "Secrets=$($deliveryTargetSecrets -join ',')"
+
       - name: Read secrets
         uses: aholstrup1/AL-Go-Actions/ReadSecrets@main
         env:
           secrets: ${{ toJson(secrets) }}
         with:
           settingsJson: ${{ env.Settings }}
-          secrets: 'GitHubPackagesContext,NuGetContext,StorageContext,AppSourceContext'
+          secrets: ${{ steps.DetermineDeliveryTargetSecrets.outputs.Secrets }}
 
       - name: Determine Delivery Targets
         id: DetermineDeliveryTargets
         run: |
           $ErrorActionPreference = "STOP"
-          $deliveryTargets = @()
-          if ($env:StorageContext) {
-            $deliveryTargets += @("Storage")
-          }
-          if ($env:NuGetContext) {
-            $deliveryTargets += @("NuGet")
-          }
-          if ($env:GitHubPackagesContext) {
-            $deliveryTargets += @("GitHubPackages")
-          }
+          $deliveryTargets = @('GitHubPackages','NuGet','Storage')
           if ($env:type -eq "AppSource App" -and $env:AppSourceContinuousDelivery -eq "true") {
-            if ($env:AppSourceContext) {
-              $deliveryTargets += @("AppSource")
+            $deliveryTargets += @("AppSource")
+          }
+          $namePrefix = 'DeliverTo'
+          Get-Item -Path (Join-Path $ENV:GITHUB_WORKSPACE ".github\$($namePrefix)*.ps1") | ForEach-Object {
+            $deliveryTarget = [System.IO.Path]::GetFileNameWithoutExtension($_.Name.SubString($namePrefix.Length))
+            $deliveryTargets += @($deliveryTarget)
+          }
+          $deliveryTargets = $deliveryTargets | Select-Object -unique | Where-Object {
+            $include = $false
+            Write-Host "Check DeliveryTarget $_"
+            $contextName = "$($_)Context"
+            $deliveryContext = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([System.Environment]::GetEnvironmentVariable($contextName)))
+            if ($deliveryContext) {
+              $settingName = "DeliverTo$_"
+              $settings = $env:Settings | ConvertFrom-Json
+              if (($settings.PSObject.Properties.Name -eq $settingName) -and ($settings."$settingName".PSObject.Properties.Name -eq "Branches")) {
+                Write-Host "Branches:"
+                $settings."$settingName".Branches | ForEach-Object {
+                  Write-Host "- $_"
+                  if ($ENV:GITHUB_REF_NAME -like $_) {
+                    $include = $true
+                  }
+                }
+              }
+              else {
+                $include = ($ENV:GITHUB_REF_NAME -eq 'main')
+              }
             }
+            if ($include) {
+              Write-Host "DeliveryTarget $_ included"
+            }
+            $include
           }
-          Get-Item -Path (Join-Path $ENV:GITHUB_WORKSPACE ".github\DeliverTo*.ps1") | ForEach-Object {
-            $deliveryTargets += @([System.IO.Path]::GetFileNameWithoutExtension($_.Name.SubString(9)))
-          }
-          $deliveryTargets = $deliveryTargets | Select-Object -unique
           $deliveryTargetsJson = $deliveryTargets | ConvertTo-Json -Depth 99 -compress
           if ($deliveryTargets.Count -lt 2) { $deliveryTargetsJson = "[$($deliveryTargetsJson)]" }
           Add-Content -Path $env:GITHUB_OUTPUT -Value "DeliveryTargetsJson=$deliveryTargetsJson"
@@ -324,25 +345,18 @@ jobs:
             });
 
       - name: Checkout
-        if: github.event_name != 'workflow_run' || (github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository)
         uses: actions/checkout@v3
         with:
           lfs: true
     
-      - name: Checkout Pull Request
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name == github.repository
-        uses: actions/checkout@v2
-        with:
-          lfs: true
-          ref: ${{ github.event.workflow_run.head_branch }}
-
-      - name: Download artifacts
+      - name: Download thisbuild artifacts
+        if: env.WorkflowDepth > 1
         uses: actions/download-artifact@v3
         with:
           path: '${{ github.workspace }}\.dependencies'
 
-      - name: Download Fork Pull Request Changes
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository
+      - name: Download Pull Request Changes
+        if: github.event_name == 'workflow_run'
         uses: actions/github-script@v6
         with:
           script: |
@@ -364,8 +378,10 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('.PullRequestChanges.zip', Buffer.from(download.data));
 
-      - name: Apply Fork Pull Request Changes
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name != github.repository
+      - name: Apply Pull Request Changes
+        if: github.event_name == 'workflow_run'
+        env:
+          PRREPOFULLNAME: ${{ github.event.workflow_run.head_repository.full_name }}
         run: |
           $ErrorActionPreference = "STOP"
           $location = (Get-Location).path
@@ -382,8 +398,10 @@ jobs:
             $newFolder = [System.IO.Path]::GetDirectoryName($newPath)
             $extension = [System.IO.Path]::GetExtension($path)
             $filename = [System.IO.Path]::GetFileName($path)
-            if ($extension -eq '.ps1' -or $extension -eq '.yaml' -or $extension -eq '.yml' -or $filename -eq "CODEOWNERS") {
-              throw "Pull Request containing changes to scripts, workflows or CODEOWNERS are not allowed from forks."
+            if ($ENV:PRREPOFULLNAME -ne $ENV:GITHUB_REPOSITORY) {
+              if ($extension -eq '.ps1' -or $extension -eq '.yaml' -or $extension -eq '.yml' -or $filename -eq "CODEOWNERS") {
+                throw "Pull Request containing changes to scripts, workflows or CODEOWNERS are not allowed from forks."
+              }
             }
             if ($deleteFile) {
               if (Test-Path $newPath) {
@@ -429,6 +447,24 @@ jobs:
           settingsJson: ${{ env.Settings }}
           SecretsJson: ${{ env.RepoSecrets }}
 
+      - name: Upload thisbuild artifacts - apps
+        if: env.WorkflowDepth > 1
+        uses: actions/upload-artifact@v3
+        with:
+          name: 'thisbuild-${{ matrix.project }}-Apps'
+          path: '${{ matrix.project }}/.buildartifacts/Apps/'
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Upload thisbuild artifacts - test apps
+        if: env.WorkflowDepth > 1
+        uses: actions/upload-artifact@v3
+        with:
+          name: 'thisbuild-${{ matrix.project }}-TestApps'
+          path: '${{ matrix.project }}/.buildartifacts/TestApps/'
+          if-no-files-found: ignore
+          retention-days: 1
+
       - name: Calculate Artifact names
         id: calculateArtifactNames
         if: success() || failure()
@@ -444,7 +480,7 @@ jobs:
             $ref = "$ENV:GITHUB_REF_NAME".Replace('/','_')
           }
           if ($project -eq ".") { $project = $settings.RepoName }
-          'Apps','Dependencies','TestApps','TestResults','BcptTestResults','BuildOutput' | ForEach-Object {
+          'Apps','Dependencies','TestApps','TestResults','BcptTestResults','BuildOutput','ContainerEventLog' | ForEach-Object {
             $name = "$($_)ArtifactsName"
             $value = "$($project.Replace('\','_'))-$($ref)-$_-$($settings.repoVersion).$($settings.appBuild).$($settings.appRevision)"
             Add-Content -Path $env:GITHUB_OUTPUT -Value "$name=$value"
@@ -453,7 +489,7 @@ jobs:
 
       - name: Publish artifacts - apps
         uses: actions/upload-artifact@v3
-        if: github.ref_name == 'main' || startswith(github.ref_name, 'release/')
+        if: github.ref_name == 'main' || startswith(github.ref_name, 'release/') || needs.Initialization.outputs.deliveryTargetCount > 0 || needs.Initialization.outputs.environmentCount > 0
         with:
           name: ${{ env.appsArtifactsName }}
           path: '${{ matrix.project }}/.buildartifacts/Apps/'
@@ -461,7 +497,7 @@ jobs:
 
       - name: Publish artifacts - dependencies
         uses: actions/upload-artifact@v3
-        if: github.ref_name == 'main' || startswith(github.ref_name, 'release/')
+        if: github.ref_name == 'main' || startswith(github.ref_name, 'release/') || needs.Initialization.outputs.deliveryTargetCount > 0 || needs.Initialization.outputs.environmentCount > 0
         with:
           name: ${{ env.dependenciesArtifactsName }}
           path: '${{ matrix.project }}/.buildartifacts/Dependencies/'
@@ -469,7 +505,7 @@ jobs:
 
       - name: Publish artifacts - test apps
         uses: actions/upload-artifact@v3
-        if: github.ref_name == 'main' || startswith(github.ref_name, 'release/')
+        if: github.ref_name == 'main' || startswith(github.ref_name, 'release/') || needs.Initialization.outputs.deliveryTargetCount > 0 || needs.Initialization.outputs.environmentCount > 0
         with:
           name: ${{ env.testAppsArtifactsName }}
           path: '${{ matrix.project }}/.buildartifacts/TestApps/'
@@ -481,6 +517,14 @@ jobs:
         with:
           name: ${{ env.buildOutputArtifactsName }}
           path: '${{ matrix.project }}/BuildOutput.txt'
+          if-no-files-found: ignore
+
+      - name: Publish artifacts - container event log
+        uses: actions/upload-artifact@v3
+        if: (failure()) && (hashFiles(format('{0}/ContainerEventLog.evtx',matrix.project)) != '')
+        with:
+          name: ${{ env.ContainerEventLogArtifactsName }}
+          path: '${{ matrix.project }}/ContainerEventLog.evtx'
           if-no-files-found: ignore
 
       - name: Publish artifacts - test results
@@ -538,7 +582,7 @@ jobs:
 
   Deploy:
     needs: [ Initialization, Build ]
-    if: always() && needs.Build.result == 'Success' && github.event_name != 'workflow_run' && github.ref_name == 'main' && needs.Initialization.outputs.environmentCount > 0
+    if: always() && needs.Build.result == 'Success' && github.event_name != 'workflow_run' && needs.Initialization.outputs.environmentCount > 0
     strategy: ${{ fromJson(needs.Initialization.outputs.environments) }}
     runs-on: ${{ fromJson(matrix.os) }}
     name: Deploy to ${{ matrix.environment }}
@@ -576,12 +620,19 @@ jobs:
         run: |
           $ErrorActionPreference = "STOP"
           $envName = '${{ steps.envName.outputs.envName }}'
+          $deployToSettingStr = [System.Environment]::GetEnvironmentVariable("DeployTo$envName")
+          if ($deployToSettingStr) {
+            $deployToSetting = $deployToSettingStr | ConvertFrom-Json
+          }
+          else {
+            $deployToSetting = [PSCustomObject]@{}
+          }
           $authContext = $null
           "$($envName)-AuthContext", "$($envName)_AuthContext", "AuthContext" | ForEach-Object {
             if (!($authContext)) {
               $authContext = [System.Environment]::GetEnvironmentVariable($_)
               if ($authContext) {
-                Write-Host "Using $_ secret"
+                Write-Host "Using $_ secret as AuthContext"
               }
             }            
           }
@@ -589,28 +640,39 @@ jobs:
             Write-Host "::Error::No AuthContext provided"
             exit 1
           }
-          $environmentName = $null
-          "$($envName)-EnvironmentName", "$($envName)_EnvironmentName", "EnvironmentName" | ForEach-Object {
-            if (!($EnvironmentName)) {
-              $EnvironmentName = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([System.Environment]::GetEnvironmentVariable($_)))
-              if ($EnvironmentName) {
-                Write-Host "Using $_ secret"
-              }
-            }            
+          if ($deployToSetting.PSObject.Properties.name -eq "EnvironmentName") {
+            $environmentName = $deployToSetting.EnvironmentName
+          }
+          else {
+            $environmentName = $null
+            "$($envName)-EnvironmentName", "$($envName)_EnvironmentName", "EnvironmentName" | ForEach-Object {
+              if (!($EnvironmentName)) {
+                $EnvironmentName = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([System.Environment]::GetEnvironmentVariable($_)))
+                if ($EnvironmentName) {
+                  Write-Host "Using $_ secret as EnvironmentName"
+                  Write-Host "Please consider using the DeployTo$_ setting instead, where you can specify EnvironmentName, Projects and branches"
+                }
+              }            
+            }
           }
           if (!($environmentName)) {
             $environmentName = '${{ steps.envName.outputs.envName }}'
           }
           $environmentName = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(($environmentName + '${{ matrix.environment }}'.SubString($envName.Length)).ToUpperInvariant()))
 
-          $projects = [System.Environment]::GetEnvironmentVariable("$($envName)-Projects")
-          if (-not $projects) {
-            $projects = [System.Environment]::GetEnvironmentVariable("$($envName)_Projects")
+          if ($deployToSetting.PSObject.Properties.name -eq "Projects") {
+            $projects = $deployToSetting.Projects
+          }
+          else {
+            $projects = [System.Environment]::GetEnvironmentVariable("$($envName)-Projects")
             if (-not $projects) {
-              $projects = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([System.Environment]::GetEnvironmentVariable('projects')))
+              $projects = [System.Environment]::GetEnvironmentVariable("$($envName)_Projects")
+              if (-not $projects) {
+                $projects = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([System.Environment]::GetEnvironmentVariable('projects')))
+              }
             }
           }
-          if ($projects -eq '') {
+          if ($projects -eq '' -or $projects -eq '*') {
             $projects = '*'
           }
           else {
@@ -621,7 +683,8 @@ jobs:
           Add-Content -Path $env:GITHUB_OUTPUT -Value "authContext=$authContext"
           Write-Host "authContext=$authContext"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "environmentName=$environmentName"
-          Write-Host "environmentName=$environmentName"
+          Write-Host "environmentName=$([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($environmentName)))"
+          Write-Host "environmentName (as Base64)=$environmentName"
           Add-Content -Path $env:GITHUB_OUTPUT -Value "projects=$projects"
           Write-Host "projects=$projects"
 
@@ -637,7 +700,7 @@ jobs:
 
   Deliver:
     needs: [ Initialization, Build ]
-    if: always() && needs.Build.result == 'Success' && github.event_name != 'workflow_run' && github.ref_name == 'main' && needs.Initialization.outputs.deliveryTargetCount > 0
+    if: always() && needs.Build.result == 'Success' && github.event_name != 'workflow_run' && needs.Initialization.outputs.deliveryTargetCount > 0
     strategy:
       matrix:
         deliveryTarget: ${{ fromJson(needs.Initialization.outputs.deliveryTargets) }}
