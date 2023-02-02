@@ -1,5 +1,4 @@
 name: 'Pull Request Build'
-author: 'Microsoft'
 
 on:
   pull_request_target:
@@ -51,7 +50,7 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@v2.3
+        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@main
         with:
           shell: powershell
           eventId: "DO0091"
@@ -115,18 +114,18 @@ jobs:
           project: ${{ matrix.project }}
 
       - name: Read secrets
-        uses: aholstrup1/AL-Go-Actions/ReadSecrets@v2.3
+        uses: aholstrup1/AL-Go-Actions/ReadSecrets@main
         env:
           secrets: ${{ toJson(secrets) }}
         with:
           shell: ${{ needs.Initialization.outputs.githubRunnerShell }}
           parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
           settingsJson: ${{ env.Settings }}
-          secrets: 'licenseFileUrl,insiderSasToken,codeSignCertificateUrl,codeSignCertificatePassword,keyVaultCertificateUrl,keyVaultCertificatePassword,keyVaultClientId,storageContext,gitHubPackagesContext' #TODO: Update list of secrets to only fetch the needed ones 
+          secrets: 'licenseFileUrl,insiderSasToken,keyVaultCertificateUrl,keyVaultCertificatePassword,keyVaultClientId' #TODO: Update list of secrets to only fetch the needed ones 
 
       - name: Run pipeline
         id: RunPipeline
-        uses: aholstrup1/AL-Go-Actions/RunPipeline@v2.3
+        uses: aholstrup1/AL-Go-Actions/RunPipeline@main
         env:
           BuildMode: ${{ matrix.buildMode }}
         with:
@@ -143,9 +142,9 @@ jobs:
         if: success() || failure()
         with:
           shell: ${{ needs.Initialization.outputs.githubRunnerShell }}
-          settings: ${{ needs.Initialization.outputs.telemetryScopeJson }}
+          settingsJson: ${{ env.Settings }}
           project: ${{ matrix.project }}
-          buildMode: ${{ matrix.project }}
+          buildMode: ${{ matrix.buildMode }}
           refName: ${{ github.ref_name }}
 
       - name: Upload thisbuild artifacts - apps
@@ -225,7 +224,7 @@ jobs:
       - name: Analyze Test Results
         id: analyzeTestResults
         if: success() || failure()
-        uses: aholstrup1/AL-Go-Actions/AnalyzeTests@v2.3
+        uses: aholstrup1/AL-Go-Actions/AnalyzeTests@main
         with:
           shell: ${{ needs.Initialization.outputs.githubRunnerShell }}
           parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
@@ -233,7 +232,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        uses: aholstrup1/AL-Go-Actions/PipelineCleanup@v2.3
+        uses: aholstrup1/AL-Go-Actions/PipelineCleanup@main
         with:
           shell: ${{ needs.Initialization.outputs.githubRunnerShell }}
           parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
@@ -248,7 +247,7 @@ jobs:
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@v2.3
+        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@main
         with:
           shell: powershell
           eventId: "DO0091"
