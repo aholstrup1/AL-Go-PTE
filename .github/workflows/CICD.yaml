@@ -1,4 +1,4 @@
-name: 'CI/CD'
+name: ' CI/CD'
 
 on:
   workflow_dispatch:
@@ -8,8 +8,6 @@ on:
       - '.github/workflows/*.yaml'
       - '!.github/workflows/CICD.yaml'
     branches: [ 'main', 'release/*', 'feature/*' ]
-
-run-name: 'CI/CD: ${{github.event.head_commit.message}}'
 
 defaults:
   run:
@@ -208,7 +206,7 @@ jobs:
 
   Build:
     needs: [ Initialization ]
-    if: ${{ needs.Initialization.outputs.projectCount > 0 }}
+    if: (!failure()) && (!cancelled()) && needs.Initialization.outputs.projectCount > 0
     runs-on: ${{ fromJson(needs.Initialization.outputs.githubRunner) }}
     defaults:
       run:
