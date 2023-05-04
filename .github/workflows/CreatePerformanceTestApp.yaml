@@ -52,13 +52,13 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@main
+        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@private/refactor_azurecreds
         with:
           shell: powershell
           eventId: "DO0102"
 
       - name: Creating a new test app
-        uses: aholstrup1/AL-Go-Actions/CreateApp@main
+        uses: aholstrup1/AL-Go-Actions/CreateApp@private/refactor_azurecreds
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
@@ -73,7 +73,7 @@ jobs:
 
       - name: Finalize the workflow
         if: always()
-        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@main
+        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@private/refactor_azurecreds
         with:
           shell: powershell
           eventId: "DO0102"
