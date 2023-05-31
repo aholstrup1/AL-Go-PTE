@@ -252,11 +252,8 @@ jobs:
         uses: aholstrup1/AL-Go-Actions/Sign@main
         with:
           shell: ${{ needs.Initialization.outputs.githubRunnerShell }}
-          azureKeyVaultName: ${{ fromJSON(secrets.AZURE_CREDENTALS).keyVaultName }}
-          azureKeyVaultClientID: ${{ fromJSON(secrets.AZURE_CREDENTALS).clientId }}
-          azureKeyVaultClientSecret: ${{ fromJSON(secrets.AZURE_CREDENTALS).clientSecret }}
-          azureKeyVaultTenantID: ${{ fromJSON(secrets.AZURE_CREDENTALS).tenantId }}
-          azureKeyVaultCertificateName: ${{ env.keyVaultCodesignCertificateName }}
+          azureCredentialsJson: ${{ secrets.AZURE_CREDENTIALS }}
+          settingsJson: ${{ env.Settings }}
           pathToFiles: '${{ matrix.project }}/.buildartifacts/Apps/*.app'
           parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
 
