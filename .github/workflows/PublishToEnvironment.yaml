@@ -38,14 +38,14 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@v42
+        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@v43
         with:
           shell: powershell
           eventId: "DO0097"
 
       - name: Read settings
         id: ReadSettings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@v42
+        uses: aholstrup1/AL-Go-Actions/ReadSettings@v43
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
@@ -61,7 +61,7 @@ jobs:
           Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "envName=$envName"
 
       - name: Read secrets
-        uses: aholstrup1/AL-Go-Actions/ReadSecrets@v42
+        uses: aholstrup1/AL-Go-Actions/ReadSecrets@v43
         if: steps.ReadSettings.outputs.UnknownEnvironment == 1
         with:
           shell: powershell
@@ -94,7 +94,7 @@ jobs:
             Write-Host "No AuthContext provided for $envName, initiating Device Code flow"
             $ALGoHelperPath = "$([System.IO.Path]::GetTempFileName()).ps1"
             $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go-Actions/v42/AL-Go-Helper.ps1', $ALGoHelperPath)
+            $webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go-Actions/v43/AL-Go-Helper.ps1', $ALGoHelperPath)
             . $ALGoHelperPath
             $BcContainerHelperPath = DownloadAndImportBcContainerHelper -baseFolder $ENV:GITHUB_WORKSPACE
             $authContext = New-BcAuthContext -includeDeviceLogin -deviceLoginTimeout ([TimeSpan]::FromSeconds(0))
@@ -125,12 +125,12 @@ jobs:
           Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "envName=$envName"
 
       - name: Read settings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@v42
+        uses: aholstrup1/AL-Go-Actions/ReadSettings@v43
         with:
           shell: powershell
 
       - name: Read secrets
-        uses: aholstrup1/AL-Go-Actions/ReadSecrets@v42
+        uses: aholstrup1/AL-Go-Actions/ReadSecrets@v43
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -215,7 +215,7 @@ jobs:
           Write-Host "projects=$projects"
 
       - name: Deploy
-        uses: aholstrup1/AL-Go-Actions/Deploy@v42
+        uses: aholstrup1/AL-Go-Actions/Deploy@v43
         env:
           AuthContext: ${{ steps.authContext.outputs.authContext }}
         with:
@@ -236,7 +236,7 @@ jobs:
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@v42
+        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@v43
         with:
           shell: powershell
           eventId: "DO0097"
