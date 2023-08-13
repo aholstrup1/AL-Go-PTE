@@ -20,10 +20,10 @@ $webClient.CachePolicy = New-Object System.Net.Cache.RequestCachePolicy -argumen
 $webClient.Encoding = [System.Text.Encoding]::UTF8
 Write-Host "Downloading GitHub Helper module"
 $GitHubHelperPath = "$([System.IO.Path]::GetTempFileName()).psm1"
-$webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go/c3a13dda0943552a29399f0c04a709c22fd7b36c/Actions/Github-Helper.psm1', $GitHubHelperPath)
+$webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go/9e0b292d8c9dcf30c7a0bfc07ed4437b404fdc4d/Actions/Github-Helper.psm1', $GitHubHelperPath)
 Write-Host "Downloading AL-Go Helper script"
 $ALGoHelperPath = "$([System.IO.Path]::GetTempFileName()).ps1"
-$webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go/c3a13dda0943552a29399f0c04a709c22fd7b36c/Actions/AL-Go-Helper.ps1', $ALGoHelperPath)
+$webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go/9e0b292d8c9dcf30c7a0bfc07ed4437b404fdc4d/Actions/AL-Go-Helper.ps1', $ALGoHelperPath)
 
 Import-Module $GitHubHelperPath
 . $ALGoHelperPath -local
