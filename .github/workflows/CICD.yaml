@@ -46,14 +46,14 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@main
+        uses: aholstrup1/AL-Go/Actions/WorkflowInitialize@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           eventId: "DO0091"
 
       - name: Read settings
         id: ReadSettings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@main
+        uses: aholstrup1/AL-Go/Actions/ReadSettings@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
@@ -67,7 +67,7 @@ jobs:
           
       - name: Determine Projects To Build
         id: determineProjectsToBuild
-        uses: aholstrup1/AL-Go-Actions/DetermineProjectsToBuild@main
+        uses: aholstrup1/AL-Go/Actions/DetermineProjectsToBuild@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           maxBuildDepth: ${{ env.workflowDepth }}
@@ -85,7 +85,7 @@ jobs:
           Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "Secrets=$($deliveryTargetSecrets -join ',')"
 
       - name: Read secrets
-        uses: aholstrup1/AL-Go-Actions/ReadSecrets@main
+        uses: aholstrup1/AL-Go/Actions/ReadSecrets@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -157,14 +157,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Read settings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@main
+        uses: aholstrup1/AL-Go/Actions/ReadSettings@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
           get: templateUrl
 
       - name: Check for updates to AL-Go system files
-        uses: aholstrup1/AL-Go-Actions/CheckForUpdates@main
+        uses: aholstrup1/AL-Go/Actions/CheckForUpdates@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
@@ -218,12 +218,12 @@ jobs:
           Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "envName=$envName"
 
       - name: Read settings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@main
+        uses: aholstrup1/AL-Go/Actions/ReadSettings@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
 
       - name: Read secrets
-        uses: aholstrup1/AL-Go-Actions/ReadSecrets@main
+        uses: aholstrup1/AL-Go/Actions/ReadSecrets@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -308,7 +308,7 @@ jobs:
           Write-Host "projects=$projects"
 
       - name: Deploy
-        uses: aholstrup1/AL-Go-Actions/Deploy@main
+        uses: aholstrup1/AL-Go/Actions/Deploy@c461c793156803b929a1f39b8456cf811bf609cc
         env:
           AuthContext: ${{ steps.authContext.outputs.authContext }}
         with:
@@ -337,12 +337,12 @@ jobs:
           path: '.artifacts'
 
       - name: Read settings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@main
+        uses: aholstrup1/AL-Go/Actions/ReadSettings@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
 
       - name: Read secrets
-        uses: aholstrup1/AL-Go-Actions/ReadSecrets@main
+        uses: aholstrup1/AL-Go/Actions/ReadSecrets@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           gitHubSecrets: ${{ toJson(secrets) }}
@@ -359,7 +359,7 @@ jobs:
           Write-Host "deliveryContext=$deliveryContext"
 
       - name: Deliver
-        uses: aholstrup1/AL-Go-Actions/Deliver@main
+        uses: aholstrup1/AL-Go/Actions/Deliver@c461c793156803b929a1f39b8456cf811bf609cc
         env:
           deliveryContext: ${{ steps.deliveryContext.outputs.deliveryContext }}
         with:
@@ -379,7 +379,7 @@ jobs:
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@main
+        uses: aholstrup1/AL-Go/Actions/WorkflowPostProcess@c461c793156803b929a1f39b8456cf811bf609cc
         with:
           shell: powershell
           eventId: "DO0091"
