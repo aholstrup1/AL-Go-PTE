@@ -34,14 +34,14 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@v43
+        uses: aholstrup1/AL-Go-Actions/WorkflowInitialize@v46
         with:
           shell: powershell
           eventId: "DO0100"
 
       - name: Read settings
         id: ReadSettings
-        uses: aholstrup1/AL-Go-Actions/ReadSettings@v43
+        uses: aholstrup1/AL-Go-Actions/ReadSettings@v46
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
@@ -53,7 +53,7 @@ jobs:
           
       - name: Determine Projects To Build
         id: determineProjectsToBuild
-        uses: aholstrup1/AL-Go-Actions/DetermineProjectsToBuild@v43
+        uses: aholstrup1/AL-Go-Actions/DetermineProjectsToBuild@v46
         with:
           shell: powershell
           maxBuildDepth: ${{ env.workflowDepth }}
@@ -89,7 +89,7 @@ jobs:
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@v43
+        uses: aholstrup1/AL-Go-Actions/WorkflowPostProcess@v46
         with:
           shell: powershell
           eventId: "DO0100"
