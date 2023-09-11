@@ -24,20 +24,20 @@ $webClient.DownloadFile('https://raw.githubusercontent.com/aholstrup1/AL-Go-Acti
 
 Import-Module $GitHubHelperPath
 . $ALGoHelperPath -local
-    
+
 $baseFolder = GetBaseFolder -folder $PSScriptRoot
 $project = GetProject -baseFolder $baseFolder -projectALGoFolder $PSScriptRoot
 
 Clear-Host
 Write-Host
 Write-Host -ForegroundColor Yellow @'
-   _____ _                 _   _____             ______            
-  / ____| |               | | |  __ \           |  ____|           
+   _____ _                 _   _____             ______
+  / ____| |               | | |  __ \           |  ____|
  | |    | | ___  _   _  __| | | |  | | _____   __ |__   _ ____   __
  | |    | |/ _ \| | | |/ _` | | |  | |/ _ \ \ / /  __| | '_ \ \ / /
- | |____| | (_) | |_| | (_| | | |__| |  __/\ V /| |____| | | \ V / 
-  \_____|_|\___/ \__,_|\__,_| |_____/ \___| \_/ |______|_| |_|\_/  
-                                                                   
+ | |____| | (_) | |_| | (_| | | |__| |  __/\ V /| |____| | | \ V /
+  \_____|_|\___/ \__,_|\__,_| |_____/ \___| \_/ |______|_| |_|\_/
+
 '@
 
 Write-Host @'
@@ -50,8 +50,6 @@ The script will also modify launch.json to have a "Cloud Sandbox (<name>)" confi
 if (Test-Path (Join-Path $PSScriptRoot "NewBcContainer.ps1")) {
     Write-Host -ForegroundColor Red "WARNING: The project has a NewBcContainer override defined. Typically, this means that you cannot run a cloud development environment"
 }
-
-$settings = ReadSettings -baseFolder $baseFolder -project $project -userName $env:USERNAME
 
 Write-Host
 
