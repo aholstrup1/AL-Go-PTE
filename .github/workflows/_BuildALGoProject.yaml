@@ -150,7 +150,7 @@ jobs:
           uses: aholstrup1/AL-Go-Actions/CodeAnalysis@main
           with:
             shell: ${{ inputs.shell }}
-            errorLogPath: '${{ inputs.project }}/.buildartifacts/ErrorLog.json'
+            errorLogPath: '${{ inputs.project }}/errorLog.json'
         
         - name: Sign
           if: inputs.signArtifacts && env.doNotSignApps == 'False' && env.keyVaultCodesignCertificateName != ''
