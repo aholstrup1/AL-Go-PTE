@@ -343,7 +343,7 @@ jobs:
           artifacts: '.artifacts'
 
   PostProcess:
-    needs: [ Initialization, Build, BuildPP, Deploy, Deliver, DeployALDoc, CustomJob-CreateBuildTag ]
+    needs: [ Initialization, Build, BuildPP, Deploy, Deliver, CustomJob-CreateBuildTag, DeployALDoc ]
     if: (!cancelled())
     runs-on: [ windows-latest ]
     steps:
