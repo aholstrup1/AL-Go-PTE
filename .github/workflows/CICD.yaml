@@ -17,7 +17,7 @@ permissions:
   actions: read
   contents: read
   id-token: write
-  pages: read
+  pages: write
 
 env:
   workflowDepth: 1
